@@ -58,7 +58,7 @@ python3 ~/.agents/skills/fusion/scripts/model_config.py set --profile claude-cod
 
 Use exact model IDs and efforts. Claude profiles reject aliases such as `sonnet`, which move to a newer model on release. `null` or `--effort default` uses the transport's default effort.
 Claude Code's agent tool cannot set a model ID or effort per call. For the native Claude Code sidekick, `init`, `set`, and `sync` write a generated `~/.claude/agents/fusion-sidekick.md` that pins both.
-Claude Code loads that file at session start, so start a new session after a Claude Code model change. If you edit the JSON by hand, run `model_config.py sync` first.
+Claude Code loads that file at session start. A change made during a session applies in the next session, and the lead asks you to restart when its sidekick's settings change. If you edit the JSON by hand, run `model_config.py sync` first.
 Other changes take effect at the next handoff without reinstalling anything. A change of transport, model, or effort replaces the sidekick after its running handoff.
 An invalid file blocks new handoffs instead of silently selecting another model.
 

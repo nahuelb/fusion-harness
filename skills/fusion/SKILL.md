@@ -78,7 +78,7 @@ Report results and limits plainly. Do not claim a sidekick ran unless the spawn 
 
 Keep a continuation record: transport, session or agent ID, model, effort, granted permission mode, accepted changes, passing checks, pending work, and process handles you own.
 Reuse the same sidekick through implementation, rework, and related follow-ups. A finished handoff is not a reason to replace it.
-Before each later handoff, run `resolve` again with `--active-transport`, `--active-model`, and `--active-effort` from the record. On `replace_after_handoff`, collect and review the current result, close the old sidekick, and start a new one with a summary of the accepted state.
+Before each later handoff, run `resolve` again with `--active-transport`, `--active-model`, and `--active-effort` from the record. On `replace_after_handoff`, collect and review the current result, close the old sidekick, and start a new one with a summary of the accepted state. On `restart_session`, follow [runtimes](references/runtimes.md).
 A model change applies at a handoff boundary. It never changes a running call.
 To stop Fusion, steer running work to a safe stopping point, collect its partial result, and close the sidekick.
 

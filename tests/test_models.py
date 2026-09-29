@@ -166,12 +166,29 @@ class ModelTests(unittest.TestCase):
         self.assertNotIn('agent_type', model_config.resolve('codex'))
 
     def test_claude_profiles_need_full_ids_and_claude_efforts(self):
-        base = json.loads(self.path.read_text())
-        for profile, settings in (('claude-code', {'transport': 'native', 'model': 'sonnet', 'reasoning_effort': 'medium'}),
-                                  ('pi', {'transport': 'claude-cli', 'model': 'opus', 'reasoning_effort': None}),
-                                  ('claude-code', {'transport': 'native', 'model': 'claude-sonnet-5-5', 'reasoning_effort': 'minimal'})):
-            with self.subTest(settings=settings), self.assertRaises(ValueError):
-                model_config.validate({'version': 2, 'sidekicks': {**base['sidekicks'], profile: settings}})
+        with self.assertRaisesRegex(ValueError, 'full Claude model ID'):
+            model_config.update('claude-code', model='sonnet')
+        with self.assertRaisesRegex(ValueError, 'for Claude'):
+            model_config.update('claude-code', effort='minimal')
+        with self.assertRaisesRegex(ValueError, 'full Claude model ID'):
+            model_config.update('pi', transport='claude-cli', model='opus')
+
+    def test_old_alias_file_still_loads_and_can_be_repaired(self):
+        self.edit('claude-code', 'model', 'sonnet')
+        self.edit('claude-code', 'reasoning_effort', None)
+        self.assertEqual(model_config.resolve('codex')['profile'], 'codex')
+        with self.assertRaisesRegex(ValueError, 'set --profile claude-code'):
+            model_config.resolve('claude-code')
+        self.assertIn('error', model_config.with_claude_agent(model_config.read())['claude_agent'])
+        model_config.update('claude-code', model='claude-sonnet-5-5', effort='medium')
+        self.assertTrue(model_config.resolve('claude-code')['agent_file_current'])
+
+    def test_native_claude_change_requires_new_session(self):
+        active = self.active('claude-code')
+        model_config.update('claude-code', effort='high')
+        self.assertEqual(model_config.resolve('claude-code', active)['action'], 'restart_session')
+        model_config.update('claude-code', transport='claude-cli')
+        self.assertEqual(model_config.resolve('claude-code', active)['action'], 'replace_after_handoff')
 
     def test_partial_active_arguments_are_rejected(self):
         process = subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'resolve', '--harness', 'codex', '--active-model', 'x'],

@@ -40,6 +40,16 @@ def uses_claude(name, settings):
     return settings['transport'] == 'claude-cli' or (name == CLAUDE_PROFILE and settings['transport'] == 'native')
 
 
+def check_claude(name, settings):
+    if not uses_claude(name, settings):
+        return
+    fix = f'Run model_config.py set --profile {name} --model <full-id> --effort <effort>.'
+    if settings['model'] in CLAUDE_ALIASES:
+        raise ValueError(f'sidekicks.{name}.model must be a full Claude model ID such as claude-sonnet-5-5, not an alias. {fix}')
+    if settings['reasoning_effort'] is not None and settings['reasoning_effort'] not in CLAUDE_EFFORTS:
+        raise ValueError(f'sidekicks.{name}.reasoning_effort must be null or one of {sorted(CLAUDE_EFFORTS)} for Claude. {fix}')
+
+
 def legacy_path():
     codex_home = Path(os.environ.get('CODEX_HOME') or Path.home() / '.codex').expanduser()
     return codex_home / 'plugins/fusion/models.json'
@@ -64,11 +74,6 @@ def validate(data):
         effort = settings['reasoning_effort']
         if effort is not None and effort not in EFFORTS:
             raise ValueError(f'sidekicks.{name}.reasoning_effort must be null or one of {sorted(EFFORTS)}.')
-        if uses_claude(name, settings):
-            if model in CLAUDE_ALIASES:
-                raise ValueError(f'sidekicks.{name}.model must be a full Claude model ID such as claude-sonnet-5-5, not an alias.')
-            if effort is not None and effort not in CLAUDE_EFFORTS:
-                raise ValueError(f'sidekicks.{name}.reasoning_effort must be null or one of {sorted(CLAUDE_EFFORTS)} for Claude.')
     if profiles[FALLBACK_PROFILE]['transport'] == 'native':
         raise ValueError(f'The "{FALLBACK_PROFILE}" profile must use a CLI transport so it works in any harness.')
     return data
@@ -103,6 +108,10 @@ def claude_agent(loaded):
     settings = loaded['models']['sidekicks'].get(CLAUDE_PROFILE)
     if not settings or settings['transport'] != 'native':
         return None
+    try:
+        check_claude(CLAUDE_PROFILE, settings)
+    except ValueError as exc:
+        return {'agent_type': CLAUDE_AGENT, 'agent_file': str(claude_agent_path()), 'agent_file_current': False, 'error': str(exc)}
     path = claude_agent_path()
     try:
         current = path.read_text() == claude_agent_text(settings)
@@ -113,7 +122,7 @@ def claude_agent(loaded):
 
 def sync_claude_agent(loaded):
     status = claude_agent(loaded)
-    if status and not status['agent_file_current']:
+    if status and not status['agent_file_current'] and 'error' not in status:
         path = Path(status['agent_file'])
         path.parent.mkdir(parents=True, exist_ok=True)
         with tempfile.NamedTemporaryFile('w', dir=path.parent, delete=False, suffix='.tmp') as output:
@@ -127,9 +136,12 @@ def resolve_loaded(loaded, harness, active=None):
     profiles = loaded['models']['sidekicks']
     profile = harness if harness in profiles else FALLBACK_PROFILE
     selected = dict(profiles[profile])
-    action = 'spawn' if active is None else 'reuse' if settings_of(active) == settings_of(selected) else 'replace_after_handoff'
+    check_claude(profile, selected)
+    native_claude = profile == CLAUDE_PROFILE and selected['transport'] == 'native'
+    changed = 'restart_session' if native_claude and active and active['transport'] == 'native' else 'replace_after_handoff'
+    action = 'spawn' if active is None else 'reuse' if settings_of(active) == settings_of(selected) else changed
     result = {'path': loaded['path'], 'revision': loaded['revision'], 'harness': harness, 'profile': profile, 'action': action, **selected}
-    if profile == CLAUDE_PROFILE and selected['transport'] == 'native':
+    if native_claude:
         result.update(claude_agent(loaded))
     return result
 
@@ -195,6 +207,7 @@ def update(profile, transport=None, model=None, effort=None):
         candidate['model'] = model
     if effort:
         candidate['reasoning_effort'] = effort_argument(effort)
+    check_claude(profile, candidate)
     data['sidekicks'][profile] = candidate
     write_atomic(Path(loaded['path']), validate(data))
     return with_claude_agent(read())
