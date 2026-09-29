@@ -76,7 +76,7 @@ Report results and limits plainly. Do not claim a sidekick ran unless the spawn 
 
 ## Continuity and models
 
-Keep a continuation record: transport, session or agent ID, model, effort, accepted changes, passing checks, pending work, and process handles you own.
+Keep a continuation record: transport, session or agent ID, model, effort, granted permission mode, accepted changes, passing checks, pending work, and process handles you own.
 Reuse the same sidekick through implementation, rework, and related follow-ups. A finished handoff is not a reason to replace it.
 Before each later handoff, run `resolve` again with `--active-transport`, `--active-model`, and `--active-effort` from the record. On `replace_after_handoff`, collect and review the current result, close the old sidekick, and start a new one with a summary of the accepted state.
 A model change applies at a handoff boundary. It never changes a running call.
