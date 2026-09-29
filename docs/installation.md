@@ -7,11 +7,13 @@ Each CLI transport needs its CLI on `PATH` and signed in: `codex` for `codex-cli
 
 ```sh
 npx skills add nahuelb/fusion-harness -g -a claude-code -a codex
+python3 ~/.agents/skills/fusion/scripts/model_config.py init
 ```
 
 The [skills CLI](https://github.com/vercel-labs/skills) needs Node.js. It copies the skill to `~/.agents/skills/fusion`, which Codex reads, and links it from `~/.claude/skills/fusion` for Claude Code.
 Use `-a` for other agents, or drop `-g` to install into the current project. Start a new task after installing; a running task does not prove that the skill loaded.
-Update with `npx skills update fusion -g`, and remove with `npx skills remove fusion -g`.
+Run `init` before you start Claude Code, so the session loads the sidekick definition it writes.
+Update with `npx skills update fusion -g` and run `init` again. Remove with `npx skills remove fusion -g`.
 
 ## Install from a checkout
 
@@ -28,7 +30,7 @@ If one folder is a link to the other, create only one link. Update with `git pul
 
 ## Create the model file
 
-The first Fusion run creates the file when it is missing. To create or inspect it yourself:
+The first Fusion run creates the file when it is missing, but a Claude Code session then needs a restart. To create or inspect it yourself:
 
 ```sh
 python3 ~/.agents/skills/fusion/scripts/model_config.py init

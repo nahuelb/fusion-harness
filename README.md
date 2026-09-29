@@ -20,12 +20,13 @@ Fusion assumes a strong sidekick model. Strong sidekicks need less review, which
 
 ```sh
 npx skills add nahuelb/fusion-harness -g -a claude-code -a codex
+python3 ~/.agents/skills/fusion/scripts/model_config.py init
 ```
 
 This uses the [skills CLI](https://github.com/vercel-labs/skills). It installs the skill in `~/.agents/skills/fusion` for Codex and links it for Claude Code.
 Pick other agents with `-a`, or drop `-g` to install into the current project only.
-Start a task with `/fusion <task>` in Claude Code or `$fusion <task>` in Codex. In other harnesses, ask the agent to use the fusion skill.
-The first run creates your model file. Update later with `npx skills update fusion -g`.
+Start a task with `/fusion <task>` in Claude Code or `$fusion <task>` in Codex. The defaults target an Opus 5.5 lead at medium or high effort with a Sonnet 5.5 sidekick at medium. In other harnesses, ask the agent to use the fusion skill.
+`init` creates your model file and the Claude Code sidekick definition. Run it before you start Claude Code, which loads agent definitions at session start. Update later with `npx skills update fusion -g`, then run `init` again to refresh the sidekick definition.
 See [installation](docs/installation.md) for a manual install from a checkout and migration from the earlier Codex plugin.
 
 ## Models
