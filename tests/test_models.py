@@ -69,12 +69,14 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(json.loads(self.path.read_text())['sidekicks'], {'claude-code': {'reasoning_effort': 'low'}})
         self.assertEqual(model_config.resolve('codex')['reasoning_effort'], 'medium')
 
-    def test_new_profile_needs_transport_and_model(self):
-        with self.assertRaises(ValueError):
-            model_config.update('pi', model='claude-sonnet-5-5')
-        self.assertFalse(self.path.exists())
-        model_config.update('pi', transport='claude-cli', model='claude-sonnet-5-5', effort='high')
-        self.assertEqual(model_config.resolve('pi')['profile'], 'pi')
+    def test_new_profile_inherits_missing_fields_from_default(self):
+        model_config.update('default', effort='low')
+        model_config.update('pi', effort='high')
+        self.assertEqual(json.loads(self.path.read_text())['sidekicks']['pi'], {'reasoning_effort': 'high'})
+        selected = model_config.resolve('pi')
+        self.assertEqual((selected['profile'], selected['transport'], selected['model'], selected['reasoning_effort']), ('pi', 'codex-cli', 'gpt-6-sol', 'high'))
+        model_config.update('pi', transport='claude-cli', model='claude-sonnet-5-5')
+        self.assertEqual(self.active('pi'), {'transport': 'claude-cli', 'model': 'claude-sonnet-5-5', 'reasoning_effort': 'high'})
 
     def test_no_active_sidekick_requests_spawn(self):
         self.assertEqual(model_config.resolve('codex')['action'], 'spawn')

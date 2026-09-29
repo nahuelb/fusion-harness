@@ -78,9 +78,10 @@ def read_overrides(path):
 
 
 def merge(defaults, overrides):
-    profiles = {name: dict(settings) for name, settings in defaults['sidekicks'].items()}
+    profiles = {name: {**settings, **overrides.get(name, {})} for name, settings in defaults['sidekicks'].items()}
     for name, settings in overrides.items():
-        profiles[name] = {**profiles.get(name, {'reasoning_effort': None}), **settings}
+        if name not in profiles:
+            profiles[name] = {**profiles.get(FALLBACK_PROFILE, {}), **settings}
     return validate({'version': 2, 'sidekicks': profiles})
 
 
