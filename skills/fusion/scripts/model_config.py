@@ -7,8 +7,13 @@ from pathlib import Path
 import tempfile
 
 
-DEFAULTS = Path(__file__).resolve().parents[1] / 'config/models.default.json'
+SKILL_ROOT = Path(__file__).resolve().parents[1]
+DEFAULTS = SKILL_ROOT / 'config/models.default.json'
 EFFORTS = {'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'}
+CLAUDE_EFFORTS = {'low', 'medium', 'high', 'xhigh', 'max'}
+CLAUDE_ALIASES = {'sonnet', 'opus', 'haiku', 'fable', 'inherit', 'default', 'best', 'opusplan'}
+CLAUDE_PROFILE = 'claude-code'
+CLAUDE_AGENT = 'fusion-sidekick'
 TRANSPORTS = {'native', 'codex-cli', 'claude-cli'}
 FALLBACK_PROFILE = 'default'
 DEFAULT_EFFORT_NAMES = {'default', 'null'}
@@ -24,6 +29,15 @@ def live_path():
         return Path(explicit).expanduser()
     config_home = Path(os.environ.get('XDG_CONFIG_HOME') or Path.home() / '.config').expanduser()
     return config_home / 'fusion-harness/models.json'
+
+
+def claude_agent_path():
+    config = Path(os.environ.get('CLAUDE_CONFIG_DIR') or Path.home() / '.claude').expanduser()
+    return config / 'agents' / f'{CLAUDE_AGENT}.md'
+
+
+def uses_claude(name, settings):
+    return settings['transport'] == 'claude-cli' or (name == CLAUDE_PROFILE and settings['transport'] == 'native')
 
 
 def legacy_path():
@@ -50,6 +64,11 @@ def validate(data):
         effort = settings['reasoning_effort']
         if effort is not None and effort not in EFFORTS:
             raise ValueError(f'sidekicks.{name}.reasoning_effort must be null or one of {sorted(EFFORTS)}.')
+        if uses_claude(name, settings):
+            if model in CLAUDE_ALIASES:
+                raise ValueError(f'sidekicks.{name}.model must be a full Claude model ID such as claude-sonnet-5-5, not an alias.')
+            if effort is not None and effort not in CLAUDE_EFFORTS:
+                raise ValueError(f'sidekicks.{name}.reasoning_effort must be null or one of {sorted(CLAUDE_EFFORTS)} for Claude.')
     if profiles[FALLBACK_PROFILE]['transport'] == 'native':
         raise ValueError(f'The "{FALLBACK_PROFILE}" profile must use a CLI transport so it works in any harness.')
     return data
@@ -69,12 +88,55 @@ def settings_of(item):
     return (item['transport'], item['model'], item['reasoning_effort'])
 
 
+def claude_agent_text(settings):
+    lines = ['---', f'name: {CLAUDE_AGENT}',
+             'description: Persistent sidekick for a Fusion lead. Use only when the fusion skill starts its sidekick.',
+             f'model: {settings["model"]}']
+    if settings['reasoning_effort']:
+        lines.append(f'effort: {settings["reasoning_effort"]}')
+    contract = SKILL_ROOT / 'references/sidekick.md'
+    lines += ['---', '', f'You are the Fusion sidekick. Before your first brief, read {contract} and follow it for this whole session.', '']
+    return '\n'.join(lines)
+
+
+def claude_agent(loaded):
+    settings = loaded['models']['sidekicks'].get(CLAUDE_PROFILE)
+    if not settings or settings['transport'] != 'native':
+        return None
+    path = claude_agent_path()
+    try:
+        current = path.read_text() == claude_agent_text(settings)
+    except OSError:
+        current = False
+    return {'agent_type': CLAUDE_AGENT, 'agent_file': str(path), 'agent_file_current': current}
+
+
+def sync_claude_agent(loaded):
+    status = claude_agent(loaded)
+    if status and not status['agent_file_current']:
+        path = Path(status['agent_file'])
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.NamedTemporaryFile('w', dir=path.parent, delete=False, suffix='.tmp') as output:
+            output.write(claude_agent_text(loaded['models']['sidekicks'][CLAUDE_PROFILE]))
+        os.replace(output.name, path)
+        status = {**status, 'agent_file_current': True, 'agent_file_written': True}
+    return status
+
+
 def resolve_loaded(loaded, harness, active=None):
     profiles = loaded['models']['sidekicks']
     profile = harness if harness in profiles else FALLBACK_PROFILE
     selected = dict(profiles[profile])
     action = 'spawn' if active is None else 'reuse' if settings_of(active) == settings_of(selected) else 'replace_after_handoff'
-    return {'path': loaded['path'], 'revision': loaded['revision'], 'harness': harness, 'profile': profile, 'action': action, **selected}
+    result = {'path': loaded['path'], 'revision': loaded['revision'], 'harness': harness, 'profile': profile, 'action': action, **selected}
+    if profile == CLAUDE_PROFILE and selected['transport'] == 'native':
+        result.update(claude_agent(loaded))
+    return result
+
+
+def with_claude_agent(loaded):
+    status = sync_claude_agent(loaded)
+    return {**loaded, 'claude_agent': status} if status else loaded
 
 
 def resolve(harness, active=None):
@@ -106,15 +168,15 @@ def imported_defaults():
 def initialize():
     path = live_path()
     if path.exists():
-        return {**read(), 'created': False}
+        return {**with_claude_agent(read()), 'created': False}
     data, source = imported_defaults()
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with path.open('x') as output:
             output.write(json.dumps(data, indent=2) + '\n')
     except FileExistsError:
-        return {**read(), 'created': False}
-    result = {**read(), 'created': True}
+        return {**with_claude_agent(read()), 'created': False}
+    result = {**with_claude_agent(read()), 'created': True}
     if source:
         result['imported_from'] = source
     return result
@@ -135,7 +197,7 @@ def update(profile, transport=None, model=None, effort=None):
         candidate['reasoning_effort'] = effort_argument(effort)
     data['sidekicks'][profile] = candidate
     write_atomic(Path(loaded['path']), validate(data))
-    return read()
+    return with_claude_agent(read())
 
 
 def main():
@@ -143,6 +205,7 @@ def main():
     commands = parser.add_subparsers(dest='command', required=True)
     commands.add_parser('init')
     commands.add_parser('show')
+    commands.add_parser('sync')
     sub = commands.add_parser('resolve')
     sub.add_argument('--harness', required=True)
     sub.add_argument('--active-transport', choices=sorted(TRANSPORTS))
@@ -159,6 +222,8 @@ def main():
             result = initialize()
         elif args.command == 'show':
             result = read()
+        elif args.command == 'sync':
+            result = with_claude_agent(read())
         elif args.command == 'set':
             result = update(args.profile, args.transport, args.model, args.effort)
         else:

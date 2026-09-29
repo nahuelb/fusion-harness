@@ -3,8 +3,8 @@
   "sidekicks": {
     "claude-code": {
       "transport": "native",
-      "model": "sonnet",
-      "reasoning_effort": null
+      "model": "claude-sonnet-5-5",
+      "reasoning_effort": "medium"
     },
     "codex": {
       "transport": "native",

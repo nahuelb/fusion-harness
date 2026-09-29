@@ -14,7 +14,7 @@ import sidekick
 
 
 CODEX = {'transport': 'codex-cli', 'model': 'gpt-6-sol', 'reasoning_effort': 'medium'}
-CLAUDE = {'transport': 'claude-cli', 'model': 'sonnet', 'reasoning_effort': None}
+CLAUDE = {'transport': 'claude-cli', 'model': 'claude-sonnet-5-5', 'reasoning_effort': None}
 
 
 def returning(stdout='', code=0, stderr=''):
@@ -118,7 +118,7 @@ class CommandLineTests(unittest.TestCase):
     def test_start_refuses_native_profile(self):
         with tempfile.TemporaryDirectory() as temp:
             models = Path(temp) / 'models.json'
-            environment = {**os.environ, 'FUSION_MODELS_FILE': str(models)}
+            environment = {**os.environ, 'FUSION_MODELS_FILE': str(models), 'CLAUDE_CONFIG_DIR': str(Path(temp) / 'claude')}
             subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'init'], env=environment, capture_output=True, check=True)
             process = subprocess.run([sys.executable, str(SCRIPTS / 'sidekick.py'), 'start', '--harness', 'claude-code', '--workdir', temp],
                                      input='brief', env=environment, capture_output=True, text=True)

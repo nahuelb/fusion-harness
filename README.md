@@ -37,7 +37,7 @@ It holds one sidekick profile per harness. The lead picks the profile that match
 {
   "version": 2,
   "sidekicks": {
-    "claude-code": { "transport": "native", "model": "sonnet", "reasoning_effort": null },
+    "claude-code": { "transport": "native", "model": "claude-sonnet-5-5", "reasoning_effort": "medium" },
     "codex": { "transport": "native", "model": "gpt-6-sol", "reasoning_effort": "medium" },
     "default": { "transport": "codex-cli", "model": "gpt-6-sol", "reasoning_effort": "medium" }
   }
@@ -56,13 +56,16 @@ For a Codex sidekick inside Claude Code, set the `claude-code` profile to `codex
 python3 ~/.agents/skills/fusion/scripts/model_config.py set --profile claude-code --transport codex-cli --model gpt-6-sol --effort medium
 ```
 
-Edits take effect at the next handoff without reinstalling anything. A change of transport, model, or effort replaces the sidekick after its running handoff.
-An invalid file blocks new handoffs instead of silently selecting another model. `null` or `--effort default` uses the transport's default effort.
+Use exact model IDs and efforts. Claude profiles reject aliases such as `sonnet`, which move to a newer model on release. `null` or `--effort default` uses the transport's default effort.
+Claude Code's agent tool cannot set a model ID or effort per call. For the native Claude Code sidekick, `init`, `set`, and `sync` write a generated `~/.claude/agents/fusion-sidekick.md` that pins both.
+Claude Code loads that file at session start, so start a new session after a Claude Code model change. If you edit the JSON by hand, run `model_config.py sync` first.
+Other changes take effect at the next handoff without reinstalling anything. A change of transport, model, or effort replaces the sidekick after its running handoff.
+An invalid file blocks new handoffs instead of silently selecting another model.
 
 ## Limits
 
 The skill is instructions plus small helpers. Nothing enforces delegation, and it does not recreate Devin's model routing or compaction.
-Claude Code's agent tool accepts model aliases but no effort setting, so a native Claude sidekick runs at the default effort.
+A native Claude Code sidekick picks up model changes only in a new session.
 Cost savings and quality have not been benchmarked for this skill. Token accounting reads Codex session logs only.
 
 ## Development

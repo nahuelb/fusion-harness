@@ -23,7 +23,8 @@ class ModelTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / 'models.json'
-        self.env = patch.dict(os.environ, {'FUSION_MODELS_FILE': str(self.path)})
+        self.agent = Path(self.temp.name) / 'claude/agents/fusion-sidekick.md'
+        self.env = patch.dict(os.environ, {'FUSION_MODELS_FILE': str(self.path), 'CLAUDE_CONFIG_DIR': str(Path(self.temp.name) / 'claude')})
         self.env.start()
         self.assertTrue(model_config.initialize()['created'])
 
@@ -65,13 +66,14 @@ class ModelTests(unittest.TestCase):
     def test_other_profile_and_formatting_changes_preserve_sidekick(self):
         active = self.active('codex')
         revision = model_config.read()['revision']
-        self.edit('claude-code', 'model', 'opus')
+        self.edit('claude-code', 'model', 'claude-opus-5-5')
         self.assertEqual(model_config.resolve('codex', active)['action'], 'reuse')
         self.path.write_text(json.dumps(json.loads(self.path.read_text()), indent=8))
         self.assertNotEqual(model_config.read()['revision'], revision)
         self.assertEqual(model_config.resolve('codex', active)['action'], 'reuse')
 
     def test_null_effort_matches_default_effort(self):
+        self.edit('claude-code', 'reasoning_effort', None)
         active = self.active('claude-code')
         self.assertIsNone(active['reasoning_effort'])
         self.assertEqual(model_config.resolve('claude-code', active)['action'], 'reuse')
@@ -124,14 +126,52 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(self.path.read_text(), before)
 
     def test_update_adds_profile(self):
-        model_config.update('pi', transport='claude-cli', model='sonnet', effort='high')
+        model_config.update('pi', transport='claude-cli', model='claude-sonnet-5-5', effort='high')
         self.assertEqual(model_config.resolve('pi')['profile'], 'pi')
 
     def test_printed_null_effort_is_accepted_as_active_effort(self):
+        self.edit('claude-code', 'reasoning_effort', None)
         process = subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'resolve', '--harness', 'claude-code',
-                                  '--active-transport', 'native', '--active-model', 'sonnet', '--active-effort', 'null'],
+                                  '--active-transport', 'native', '--active-model', 'claude-sonnet-5-5', '--active-effort', 'null'],
                                  capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(process.stdout)['action'], 'reuse')
+
+    def test_init_writes_pinned_claude_agent(self):
+        text = self.agent.read_text()
+        self.assertIn('name: fusion-sidekick', text)
+        self.assertIn('model: claude-sonnet-5-5', text)
+        self.assertIn('effort: medium', text)
+        self.assertIn(str(model_config.SKILL_ROOT / 'references/sidekick.md'), text)
+        selected = model_config.resolve('claude-code')
+        self.assertEqual((selected['agent_type'], selected['agent_file'], selected['agent_file_current']), ('fusion-sidekick', str(self.agent), True))
+
+    def test_hand_edit_marks_agent_stale_until_sync(self):
+        self.edit('claude-code', 'reasoning_effort', 'high')
+        self.assertFalse(model_config.resolve('claude-code')['agent_file_current'])
+        self.assertTrue(model_config.with_claude_agent(model_config.read())['claude_agent']['agent_file_written'])
+        self.assertIn('effort: high', self.agent.read_text())
+        self.assertTrue(model_config.resolve('claude-code')['agent_file_current'])
+
+    def test_set_rewrites_agent_and_null_effort_omits_it(self):
+        model_config.update('claude-code', model='claude-opus-5-5', effort='default')
+        text = self.agent.read_text()
+        self.assertIn('model: claude-opus-5-5', text)
+        self.assertNotIn('effort:', text)
+
+    def test_cli_claude_profile_needs_no_agent_file(self):
+        self.agent.unlink()
+        model_config.update('claude-code', transport='claude-cli')
+        self.assertFalse(self.agent.exists())
+        self.assertNotIn('agent_type', model_config.resolve('claude-code'))
+        self.assertNotIn('agent_type', model_config.resolve('codex'))
+
+    def test_claude_profiles_need_full_ids_and_claude_efforts(self):
+        base = json.loads(self.path.read_text())
+        for profile, settings in (('claude-code', {'transport': 'native', 'model': 'sonnet', 'reasoning_effort': 'medium'}),
+                                  ('pi', {'transport': 'claude-cli', 'model': 'opus', 'reasoning_effort': None}),
+                                  ('claude-code', {'transport': 'native', 'model': 'claude-sonnet-5-5', 'reasoning_effort': 'minimal'})):
+            with self.subTest(settings=settings), self.assertRaises(ValueError):
+                model_config.validate({'version': 2, 'sidekicks': {**base['sidekicks'], profile: settings}})
 
     def test_partial_active_arguments_are_rejected(self):
         process = subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'resolve', '--harness', 'codex', '--active-model', 'x'],
@@ -148,7 +188,7 @@ class LegacyImportTests(unittest.TestCase):
         self.legacy.parent.mkdir(parents=True)
         self.target = root / 'config/fusion-harness/models.json'
         environment = {k: v for k, v in os.environ.items() if k != 'FUSION_MODELS_FILE'}
-        environment.update({'CODEX_HOME': str(root / 'codex'), 'XDG_CONFIG_HOME': str(root / 'config')})
+        environment.update({'CODEX_HOME': str(root / 'codex'), 'XDG_CONFIG_HOME': str(root / 'config'), 'CLAUDE_CONFIG_DIR': str(root / 'claude')})
         self.env = patch.dict(os.environ, environment, clear=True)
         self.env.start()
 

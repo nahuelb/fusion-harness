@@ -38,6 +38,7 @@ python3 ~/.agents/skills/fusion/scripts/model_config.py show
 `init` creates `~/.config/fusion-harness/models.json` from the shipped defaults when the file is missing. It never overwrites an existing file.
 `XDG_CONFIG_HOME` moves the default folder. `FUSION_MODELS_FILE` selects any other path.
 Change a profile with `model_config.py set`. It validates the result and replaces the file atomically.
+`init`, `set`, and `sync` also write `~/.claude/agents/fusion-sidekick.md`, which pins the Claude Code sidekick's exact model and effort. Start a new Claude Code session after changing it.
 Model names are checked at spawn time, not by the schema. If a model is unavailable, the lead reports it and does not substitute another.
 
 ## Migrate from the Codex plugin
