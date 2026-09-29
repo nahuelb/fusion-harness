@@ -8,13 +8,13 @@
     },
     "codex": {
       "transport": "native",
-      "model": "gpt-6-sol",
-      "reasoning_effort": "medium"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
     },
     "default": {
       "transport": "codex-cli",
-      "model": "gpt-6-sol",
-      "reasoning_effort": "medium"
+      "model": "gpt-6-luna",
+      "reasoning_effort": "high"
     }
   }
 }

@@ -33,8 +33,8 @@ The lead is the model of your current session. The sidekick defaults depend on t
 | Harness | Sidekick | Effort | Transport |
 | --- | --- | --- | --- |
 | Claude Code | `claude-sonnet-5-5` | medium | Claude Code subagent |
-| Codex | `gpt-6-sol` | medium | Codex subagent |
-| Any other | `gpt-6-sol` | medium | Codex CLI session |
+| Codex | `gpt-6-luna` | high | Codex subagent |
+| Any other | `gpt-6-luna` | high | Codex CLI session |
 
 The defaults target an Opus 5.5 lead at medium or high effort in Claude Code.
 To pick another sidekick, say so when you start: `/fusion use claude-sonnet-5 at high effort as the sidekick. <task>`. The lead saves your choice as your default for future sessions.
@@ -43,7 +43,7 @@ Ask the lead to reset the sidekick to go back to the built-in defaults. Use exac
 Your choices live in `~/.config/fusion-harness/models.json`, which holds only what you changed. A sidekick can also run as a separate CLI session from any harness, through `codex-cli` or `claude-cli`. For example, this makes Claude Code use a Codex sidekick:
 
 ```sh
-python3 ~/.agents/skills/fusion/scripts/model_config.py set --profile claude-code --transport codex-cli --model gpt-6-sol --effort medium
+python3 ~/.agents/skills/fusion/scripts/model_config.py set --profile claude-code --transport codex-cli --model gpt-6-luna --effort high
 ```
 
 A change applies at the next handoff. A running sidekick finishes its current handoff first.

@@ -13,7 +13,7 @@ sys.path.insert(0, str(SCRIPTS))
 import sidekick
 
 
-CODEX = {'transport': 'codex-cli', 'model': 'gpt-6-sol', 'reasoning_effort': 'medium'}
+CODEX = {'transport': 'codex-cli', 'model': 'gpt-6-luna', 'reasoning_effort': 'high'}
 CLAUDE = {'transport': 'claude-cli', 'model': 'claude-sonnet-5-5', 'reasoning_effort': None}
 
 
@@ -38,7 +38,7 @@ class CodexTransportTests(unittest.TestCase):
             result = sidekick.run(CODEX, 'brief', '/work')
         command, kwargs = self.calls[0]
         self.assertEqual(command[:3], ['codex', 'exec', '--json'])
-        self.assertIn('model_reasoning_effort="medium"', command)
+        self.assertIn('model_reasoning_effort="high"', command)
         self.assertNotIn('-s', command)
         announce.assert_called_once_with('thread-1')
         self.assertEqual(command[command.index('-C') + 1], '/work')

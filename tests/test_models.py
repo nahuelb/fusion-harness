@@ -41,7 +41,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(model_config.user_path(), self.path)
         selected = model_config.resolve('claude-code')
         self.assertEqual((selected['transport'], selected['model'], selected['reasoning_effort']), ('native', 'claude-sonnet-5-5', 'medium'))
-        self.assertEqual(model_config.resolve('codex')['model'], 'gpt-6-sol')
+        self.assertEqual(model_config.resolve('codex')['model'], 'gpt-6-luna')
         other = model_config.resolve('another-harness')
         self.assertEqual(other['profile'], 'default')
         self.assertIn(other['transport'], ('codex-cli', 'claude-cli'))
@@ -63,18 +63,18 @@ class ModelTests(unittest.TestCase):
             self.assertEqual(self.active('codex'), {'transport': 'native', 'model': 'gpt-7-sol', 'reasoning_effort': 'high'})
 
     def test_reset_returns_to_defaults(self):
-        model_config.update('codex', effort='high')
+        model_config.update('codex', effort='low')
         model_config.update('claude-code', effort='low')
         model_config.reset('codex')
         self.assertEqual(json.loads(self.path.read_text())['sidekicks'], {'claude-code': {'reasoning_effort': 'low'}})
-        self.assertEqual(model_config.resolve('codex')['reasoning_effort'], 'medium')
+        self.assertEqual(model_config.resolve('codex')['reasoning_effort'], 'high')
 
     def test_new_profile_inherits_missing_fields_from_default(self):
         model_config.update('default', effort='low')
         model_config.update('pi', effort='high')
         self.assertEqual(json.loads(self.path.read_text())['sidekicks']['pi'], {'reasoning_effort': 'high'})
         selected = model_config.resolve('pi')
-        self.assertEqual((selected['profile'], selected['transport'], selected['model'], selected['reasoning_effort']), ('pi', 'codex-cli', 'gpt-6-sol', 'high'))
+        self.assertEqual((selected['profile'], selected['transport'], selected['model'], selected['reasoning_effort']), ('pi', 'codex-cli', 'gpt-6-luna', 'high'))
         model_config.update('pi', transport='claude-cli', model='claude-sonnet-5-5')
         self.assertEqual(self.active('pi'), {'transport': 'claude-cli', 'model': 'claude-sonnet-5-5', 'reasoning_effort': 'high'})
 
@@ -86,7 +86,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(model_config.resolve('codex', active)['action'], 'reuse')
 
     def test_model_effort_or_transport_change_requires_replacement(self):
-        for key, value in (('model', 'gpt-6-luna'), ('effort', 'high'), ('transport', 'codex-cli')):
+        for key, value in (('model', 'gpt-6-sol'), ('effort', 'low'), ('transport', 'codex-cli')):
             with self.subTest(key=key):
                 model_config.reset('codex')
                 active = self.active('codex')
@@ -174,7 +174,7 @@ class ModelTests(unittest.TestCase):
     def test_printed_null_effort_is_accepted_as_active_effort(self):
         model_config.update('codex', effort='default')
         process = subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'resolve', '--harness', 'codex',
-                                  '--active-transport', 'native', '--active-model', 'gpt-6-sol', '--active-effort', 'null'],
+                                  '--active-transport', 'native', '--active-model', 'gpt-6-luna', '--active-effort', 'null'],
                                  capture_output=True, text=True, check=True)
         self.assertEqual(json.loads(process.stdout)['action'], 'reuse')
 
