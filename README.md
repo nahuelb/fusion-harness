@@ -20,53 +20,39 @@ Fusion assumes a strong sidekick model. Strong sidekicks need less review, which
 
 ```sh
 npx skills add nahuelb/fusion-harness -g -a claude-code -a codex
-python3 ~/.agents/skills/fusion/scripts/model_config.py init
 ```
 
-This uses the [skills CLI](https://github.com/vercel-labs/skills). It installs the skill in `~/.agents/skills/fusion` for Codex and links it for Claude Code.
-Pick other agents with `-a`, or drop `-g` to install into the current project only.
-Start a task with `/fusion <task>` in Claude Code or `$fusion <task>` in Codex. The defaults target an Opus 5.5 lead at medium or high effort with a Sonnet 5.5 sidekick at medium. In other harnesses, ask the agent to use the fusion skill.
-`init` creates your model file and the Claude Code sidekick definition. Run it before you start Claude Code, which loads agent definitions at session start. Update later with `npx skills update fusion -g`, then run `init` again to refresh the sidekick definition.
-See [installation](docs/installation.md) for a manual install from a checkout and migration from the earlier Codex plugin.
+This uses the [skills CLI](https://github.com/vercel-labs/skills). It installs the skill in `~/.agents/skills/fusion` for Codex and links it for Claude Code. There is no setup step.
+Start a task with `/fusion <task>` in Claude Code or `$fusion <task>` in Codex. In other harnesses, ask the agent to use the fusion skill.
+Update with `npx skills update fusion -g`. See [installation](docs/installation.md) for other agents, a development checkout, and migration from the earlier Codex plugin.
 
 ## Models
 
-The model file is `~/.config/fusion-harness/models.json`, or `$XDG_CONFIG_HOME/fusion-harness/models.json`, or the path in `FUSION_MODELS_FILE`.
-It holds one sidekick profile per harness. The lead picks the profile that matches its harness, and `default` covers the rest:
+The lead is the model of your current session. The sidekick defaults depend on the harness:
 
-```json
-{
-  "version": 2,
-  "sidekicks": {
-    "claude-code": { "transport": "native", "model": "claude-sonnet-5-5", "reasoning_effort": "medium" },
-    "codex": { "transport": "native", "model": "gpt-6-sol", "reasoning_effort": "medium" },
-    "default": { "transport": "codex-cli", "model": "gpt-6-sol", "reasoning_effort": "medium" }
-  }
-}
-```
+| Harness | Sidekick | Effort | Transport |
+| --- | --- | --- | --- |
+| Claude Code | `claude-sonnet-5-5` | medium | Claude Code subagent |
+| Codex | `gpt-6-sol` | medium | Codex subagent |
+| Any other | `gpt-6-sol` | medium | Codex CLI session |
 
-| Transport | Sidekick | Resumes with |
-| --- | --- | --- |
-| `native` | The harness's own subagent, such as a Claude Code agent or a Codex subagent | The harness's message tool |
-| `codex-cli` | A Codex CLI session, from any harness | `codex exec resume` |
-| `claude-cli` | A Claude Code CLI session, from any harness | `claude -p --resume` |
+The defaults target an Opus 5.5 lead at medium or high effort in Claude Code.
+To pick another sidekick, say so when you start: `/fusion use claude-sonnet-5 at high effort as the sidekick. <task>`. The lead saves your choice as your default for future sessions.
+Ask the lead to reset the sidekick to go back to the built-in defaults. Use exact model IDs; aliases such as `sonnet` move to a newer model on release.
 
-For a Codex sidekick inside Claude Code, set the `claude-code` profile to `codex-cli`:
+Your choices live in `~/.config/fusion-harness/models.json`, which holds only what you changed. A sidekick can also run as a separate CLI session from any harness, through `codex-cli` or `claude-cli`. For example, this makes Claude Code use a Codex sidekick:
 
 ```sh
 python3 ~/.agents/skills/fusion/scripts/model_config.py set --profile claude-code --transport codex-cli --model gpt-6-sol --effort medium
 ```
 
-Use exact model IDs and efforts. Claude profiles reject aliases such as `sonnet`, which move to a newer model on release. `null` or `--effort default` uses the transport's default effort.
-Claude Code's agent tool cannot set a model ID or effort per call. For the native Claude Code sidekick, `init`, `set`, and `sync` write a generated `~/.claude/agents/fusion-sidekick.md` that pins both.
-Claude Code loads that file at session start. A change made during a session applies in the next session, and the lead asks you to restart when its sidekick's settings change. If you edit the JSON by hand, run `model_config.py sync` first.
-Other changes take effect at the next handoff without reinstalling anything. A change of transport, model, or effort replaces the sidekick after its running handoff.
-An invalid file blocks new handoffs instead of silently selecting another model.
+A change applies at the next handoff. A running sidekick finishes its current handoff first.
+In Claude Code, the lead pins the sidekick's model and effort in a generated `~/.claude/agents/fusion-sidekick.md`. Claude Code reloads that file between turns, so after a change the lead pauses for one short background command before it starts the sidekick.
 
 ## Limits
 
 The skill is instructions plus small helpers. Nothing enforces delegation, and it does not recreate Devin's model routing or compaction.
-A native Claude Code sidekick picks up model changes only in a new session.
+Claude Code needs one restart only if `~/.claude/agents` did not exist when the session started.
 Cost savings and quality have not been benchmarked for this skill. Token accounting reads Codex session logs only.
 
 ## Development
