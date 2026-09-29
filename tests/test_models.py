@@ -183,6 +183,14 @@ class ModelTests(unittest.TestCase):
         model_config.update('claude-code', model='claude-sonnet-5-5', effort='medium')
         self.assertTrue(model_config.resolve('claude-code')['agent_file_current'])
 
+    def test_user_owned_agent_file_is_never_replaced(self):
+        self.agent.write_text('---\nname: fusion-sidekick\nmodel: claude-opus-5-5\n---\nMine.\n')
+        model_config.update('claude-code', effort='high')
+        self.assertEqual(self.agent.read_text(), '---\nname: fusion-sidekick\nmodel: claude-opus-5-5\n---\nMine.\n')
+        selected = model_config.resolve('claude-code')
+        self.assertFalse(selected['agent_file_current'])
+        self.assertIn('not generated', selected['error'])
+
     def test_native_claude_change_requires_new_session(self):
         active = self.active('claude-code')
         model_config.update('claude-code', effort='high')
