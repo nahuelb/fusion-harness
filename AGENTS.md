@@ -13,7 +13,7 @@ Keep runtime state, user model files, credentials, and raw session logs out of G
 ## Sources and research
 
 Base instruction changes on public sources, such as Cognition's blog posts, and on this project's own tests. Cite public sources in the README.
-Write all tracked text in original prose. Do not copy third-party prompts, diagrams, or images.
+Write all tracked text in original prose. Do not copy third-party prompts. Credit any third-party image next to where it appears.
 Keep research notes in `research/`, which Git ignores. Tracked files must not describe how third-party software was inspected, and must not name inspected versions or quote their internals.
 
 ## Live model configuration

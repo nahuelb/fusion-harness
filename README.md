@@ -6,7 +6,9 @@ This project is independent and not affiliated with Cognition.
 
 ## How it works
 
-![Fusion workflow: the lead plans and reviews; one persistent sidekick explores, implements, and checks the work.](assets/fusion-workflow.svg)
+![Fusion workflow: the main agent plans and reviews; one persistent sidekick explores, implements, and checks the work.](image.png)
+
+*Diagram: [Cognition](https://cognition.com/blog/local-fusion).*
 
 The lead is the model you are already talking to. It owns the plan, ambiguity, review, and everything the user sees.
 One persistent sidekick explores the code, implements changes, and runs the checks. The two exchange briefs, reports, and feedback, never full conversations.
@@ -17,20 +19,14 @@ Fusion assumes a strong sidekick model. Strong sidekicks need less review, which
 ## Install
 
 ```sh
-git clone https://github.com/nahuelb/fusion-harness.git
-ln -s "$PWD/fusion-harness/skills/fusion" ~/.agents/skills/fusion
-ln -s "$PWD/fusion-harness/skills/fusion" ~/.claude/skills/fusion
+npx skills add nahuelb/fusion-harness -g -a claude-code -a codex
 ```
 
-Use the skill folder your harness reads. Skip a link when both paths point to the same folder.
-Then create your model file:
-
-```sh
-python3 fusion-harness/skills/fusion/scripts/model_config.py init
-```
-
+This uses the [skills CLI](https://github.com/vercel-labs/skills). It installs the skill in `~/.agents/skills/fusion` for Codex and links it for Claude Code.
+Pick other agents with `-a`, or drop `-g` to install into the current project only.
 Start a task with `/fusion <task>` in Claude Code or `$fusion <task>` in Codex. In other harnesses, ask the agent to use the fusion skill.
-See [installation](docs/installation.md) for updates and migration from the earlier Codex plugin.
+The first run creates your model file. Update later with `npx skills update fusion -g`.
+See [installation](docs/installation.md) for a manual install from a checkout and migration from the earlier Codex plugin.
 
 ## Models
 
@@ -57,7 +53,7 @@ It holds one sidekick profile per harness. The lead picks the profile that match
 For a Codex sidekick inside Claude Code, set the `claude-code` profile to `codex-cli`:
 
 ```sh
-python3 skills/fusion/scripts/model_config.py set --profile claude-code --transport codex-cli --model gpt-6-sol --effort medium
+python3 ~/.agents/skills/fusion/scripts/model_config.py set --profile claude-code --transport codex-cli --model gpt-6-sol --effort medium
 ```
 
 Edits take effect at the next handoff without reinstalling anything. A change of transport, model, or effort replaces the sidekick after its running handoff.
@@ -87,4 +83,4 @@ python3 scripts/check.py
 
 ## License
 
-[MIT](LICENSE). The workflow diagram and all instruction text are original to this project.
+[MIT](LICENSE). The instruction text is original to this project. The workflow diagram is Cognition's, from their Fusion posts.
