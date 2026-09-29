@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import signal
 import subprocess
 import sys
 import tempfile
@@ -48,18 +49,36 @@ def announce(session):
     print(f'Fusion sidekick session: {session}', file=sys.stderr, flush=True)
 
 
+def stop(process):
+    if process.poll() is None:
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+def cancel(signum, frame):
+    raise KeyboardInterrupt
+
+
 def execute(command, brief, workdir, environment, on_line=None):
     with tempfile.TemporaryFile('w+') as errors:
         process = subprocess.Popen(command, cwd=workdir, env=environment, text=True,
                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors)
-        process.stdin.write(brief)
-        process.stdin.close()
         lines = []
-        for line in process.stdout:
-            lines.append(line)
-            if on_line:
-                on_line(line)
-        code = process.wait()
+        try:
+            process.stdin.write(brief)
+            process.stdin.close()
+            for line in process.stdout:
+                lines.append(line)
+                if on_line:
+                    on_line(line)
+            code = process.wait()
+        except BaseException:
+            stop(process)
+            raise
         errors.seek(0)
         return code, ''.join(lines), errors.read()
 
@@ -117,6 +136,9 @@ def main():
         sub.add_argument('--brief-file', help='Read the brief from this file instead of standard input.')
         sub.add_argument('--permission', help='A sandbox or permission mode the user already granted; omit it to use the CLI configuration.')
     args = parser.parse_args()
+    for name in ('SIGTERM', 'SIGHUP'):
+        if hasattr(signal, name):
+            signal.signal(getattr(signal, name), cancel)
     try:
         workdir = str(Path(args.workdir).expanduser().resolve(strict=True))
         brief = Path(args.brief_file).read_text() if args.brief_file else sys.stdin.read()
@@ -136,6 +158,8 @@ def main():
             result['profile'] = settings['profile']
     except (OSError, ValueError) as exc:
         parser.exit(1, f'Fusion sidekick: {exc}\n')
+    except KeyboardInterrupt:
+        parser.exit(130, 'Fusion sidekick: cancelled; the CLI process was stopped.\n')
     print(json.dumps(result, indent=2))
     if result.get('error'):
         raise SystemExit(1)

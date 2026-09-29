@@ -4,6 +4,7 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from unittest.mock import patch
 
@@ -132,6 +133,32 @@ class CommandLineTests(unittest.TestCase):
                                          input='brief', capture_output=True, text=True)
                 self.assertEqual(process.returncode, 1)
                 self.assertIn('--permission', process.stderr)
+
+    @unittest.skipUnless(os.name == 'posix', 'uses a POSIX shell stub')
+    def test_cancelling_the_helper_stops_the_cli_process(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            marker = root / 'child.pid'
+            stub = root / 'codex'
+            stub.write_text(f'#!/bin/sh\necho $$ > {marker}\nexec sleep 60\n')
+            stub.chmod(0o755)
+            environment = {**os.environ, 'PATH': f'{root}{os.pathsep}{os.environ["PATH"]}'}
+            helper = subprocess.Popen([sys.executable, str(SCRIPTS / 'sidekick.py'), 'send', '--transport', 'codex-cli', '--session', 's',
+                                       '--model', 'm', '--effort', 'default', '--workdir', temp],
+                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=environment, text=True)
+            helper.stdin.write('brief')
+            helper.stdin.close()
+            deadline = time.monotonic() + 10
+            while not marker.exists() or not marker.read_text().strip():
+                self.assertLess(time.monotonic(), deadline)
+                time.sleep(0.05)
+            child = int(marker.read_text())
+            helper.terminate()
+            self.assertEqual(helper.wait(timeout=15), 130)
+            helper.stdout.close()
+            helper.stderr.close()
+            with self.assertRaises(ProcessLookupError):
+                os.kill(child, 0)
 
     def test_empty_brief_is_rejected(self):
         with tempfile.TemporaryDirectory() as temp:
