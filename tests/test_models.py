@@ -127,6 +127,12 @@ class ModelTests(unittest.TestCase):
         model_config.update('pi', transport='claude-cli', model='sonnet', effort='high')
         self.assertEqual(model_config.resolve('pi')['profile'], 'pi')
 
+    def test_printed_null_effort_is_accepted_as_active_effort(self):
+        process = subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'resolve', '--harness', 'claude-code',
+                                  '--active-transport', 'native', '--active-model', 'sonnet', '--active-effort', 'null'],
+                                 capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(process.stdout)['action'], 'reuse')
+
     def test_partial_active_arguments_are_rejected(self):
         process = subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'resolve', '--harness', 'codex', '--active-model', 'x'],
                                  capture_output=True, text=True)

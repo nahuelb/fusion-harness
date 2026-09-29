@@ -11,6 +11,11 @@ DEFAULTS = Path(__file__).resolve().parents[1] / 'config/models.default.json'
 EFFORTS = {'none', 'minimal', 'low', 'medium', 'high', 'xhigh', 'max'}
 TRANSPORTS = {'native', 'codex-cli', 'claude-cli'}
 FALLBACK_PROFILE = 'default'
+DEFAULT_EFFORT_NAMES = {'default', 'null'}
+
+
+def effort_argument(value):
+    return None if value in DEFAULT_EFFORT_NAMES else value
 
 
 def live_path():
@@ -127,7 +132,7 @@ def update(profile, transport=None, model=None, effort=None):
     if model:
         candidate['model'] = model
     if effort:
-        candidate['reasoning_effort'] = None if effort == 'default' else effort
+        candidate['reasoning_effort'] = effort_argument(effort)
     data['sidekicks'][profile] = candidate
     write_atomic(Path(loaded['path']), validate(data))
     return read()
@@ -142,12 +147,12 @@ def main():
     sub.add_argument('--harness', required=True)
     sub.add_argument('--active-transport', choices=sorted(TRANSPORTS))
     sub.add_argument('--active-model')
-    sub.add_argument('--active-effort', help='Use "default" when the active sidekick has no explicit effort.')
+    sub.add_argument('--active-effort', help='Use "default" or "null" when the active sidekick has no explicit effort.')
     sub = commands.add_parser('set')
     sub.add_argument('--profile', required=True)
     sub.add_argument('--transport', choices=sorted(TRANSPORTS))
     sub.add_argument('--model')
-    sub.add_argument('--effort', choices=sorted(EFFORTS | {'default'}))
+    sub.add_argument('--effort', choices=sorted(EFFORTS | DEFAULT_EFFORT_NAMES))
     args = parser.parse_args()
     try:
         if args.command == 'init':
@@ -162,8 +167,7 @@ def main():
                 raise ValueError('Pass all of --active-transport, --active-model, and --active-effort, or none.')
             active = None
             if all(given):
-                effort = None if args.active_effort == 'default' else args.active_effort
-                active = {'transport': args.active_transport, 'model': args.active_model, 'reasoning_effort': effort}
+                active = {'transport': args.active_transport, 'model': args.active_model, 'reasoning_effort': effort_argument(args.active_effort)}
             result = resolve(args.harness, active)
         print(json.dumps(result, indent=2))
     except (OSError, ValueError) as exc:
