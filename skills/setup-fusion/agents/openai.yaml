@@ -1,6 +1,0 @@
-interface:
-  display_name: "Set up Fusion"
-  short_description: "Initialize or inspect live Fusion model settings"
-  default_prompt: "Use $setup-fusion to set up Fusion."
-policy:
-  allow_implicit_invocation: true

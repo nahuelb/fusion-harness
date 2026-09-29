@@ -1,41 +1,35 @@
 # Evaluation protocol
 
-Compare this plugin, pstack, and a single-agent baseline on the same repository snapshots and tasks.
-Use at least three runs per task and rotate run order. Keep model settings, permissions, and acceptance checks recorded.
+Compare the skill with a single-agent baseline on the same repository snapshots and tasks.
+Run each harness and transport you want to support: a native Claude Code sidekick, a native Codex sidekick, and a CLI sidekick.
+Use at least three runs per task and rotate run order. Record model settings, permissions, and acceptance checks.
 Include a bounded code change, a bug investigation, a broad refactor, and correctness-critical analysis.
 
-Record acceptance success, elapsed time, lead and sidekick tokens, handoff count, rework count, and required-check results.
-Use fresh rollouts per trial so whole-rollout token totals match the trial scope.
-Keep cached input separate. Do not add cached input to total input or reasoning output to output again.
-Use `$fusion-usage` for a current or specified session snapshot. Confirm sidekick identities before comparing role totals.
-For explicit file input, supply each rollout once to `scripts/token_usage.py`. Missing counters remain unknown, never zero.
-A decreased cumulative counter makes the report potentially incomplete; resolve that before comparing totals.
-Do not infer dollar cost from mixed-model rollouts or subscription usage from token counts.
+Record acceptance success, elapsed time, lead and sidekick tokens, handoff count, rework count, lead edits, lead file reads, and required-check results.
+Use fresh sessions per trial so session totals match the trial scope. Keep cached input separate from total input.
+Do not infer dollar cost from mixed-model sessions or subscription usage from token counts.
 
-Runtime acceptance for this plugin:
+## Runtime acceptance
 
-1. A fresh task discovers the installed fusion skill and reads the live model registry.
-2. Preparation reads models once and activates only the designated main thread; delegated-lead selection leaves the caller inactive.
-3. A routine implementation brief spawns one sidekick without copying the full conversation.
-4. A rework brief reuses the same ID and preserves accepted context.
-5. The main agent reviews artifacts and runs remaining required checks.
-6. After required cleanup, close and release leave no registered agent; retain a continuation summary for related work. Explicitly stopping Fusion also deactivates it.
-7. An unrelated task receives no Fusion reminders.
+1. A fresh task loads the linked skill and resolves the profile for its harness.
+2. A routine implementation brief starts one sidekick without copying the full conversation.
+3. A rework brief reaches the same sidekick, which still knows the earlier handoff.
+4. A model change in the live file leads to `replace_after_handoff`, and the new sidekick receives the accepted state.
+5. The lead reviews the diff and evidence without rerunning passing checks.
+6. An invalid model file blocks the next handoff and names the error.
 
-Offline unit tests cover bookkeeping and token math. They do not prove model behavior or hook trust.
-Record live acceptance results separately from offline validation.
+## Instruction scenarios
 
+Record observed behavior separately from the written policy.
 
-Instruction acceptance scenarios (record observed behavior separately from written policy):
+- Settled design: the brief states requirements, locations, interfaces, edge cases, and a definition of done without dictating every line.
+- Early delegation: the lead's first handoff comes before it reads most of the relevant files, and the lead makes no routine edits.
+- Evidence-backed objection: the sidekick reports a concrete plan defect, and the lead decides before execution continues.
+- Unsettled interface: the lead delegates discovery, then settles the interface before implementation.
+- Grader or production query: the lead authors and judges the logic, and the sidekick only runs the exact recipe.
+- Failed check: the sidekick attempts an in-scope fix, reruns the affected checks, and reports remaining blockers.
+- Rework: the lead sends one consolidated brief and does not rewrite the sidekick's work itself.
+- User update during a handoff: the lead assesses it before waiting again and steers the same sidekick.
+- Unrendered UI: the report says visually unverified instead of treating a build as visual proof.
 
-- Related follow-up: reuse the same available sidekick; if cleanup required replacement, carry accepted results and checks without claiming full cache continuity.
-- User changes a running brief: assess the change before waiting again and steer the same agent; preserve already accepted work.
-- Settled design: provide locations, consequential interfaces, edge cases, and test expectations without requiring complete replacement code. The sidekick fills in bounded implementation details.
-- Evidence-backed challenge: the sidekick reports a concrete plan defect and proposed correction; the lead decides consequential changes before execution continues.
-- Unsettled interface: delegate discovery, then have the lead settle the interface and test expectations before implementation.
-- Request to create a grader or production query: the lead authors and judges its logic; any sidekick work mechanically applies that exact recipe.
-- Failed check: the sidekick attempts an in-scope repair, reruns affected checks, and reports remaining blockers with evidence.
-- Unrendered UI: report visually unverified rather than treating a build as visual evidence.
-- Unavailable bookkeeping: preserve the actual agent ID and settings in a continuation record, resolve live models directly, and avoid prepare/dispatch/register commands until bookkeeping is available.
-
-These are lead-authored evaluation cases, not automated proof of agent behavior.
+These are evaluation cases, not automated proof of agent behavior.

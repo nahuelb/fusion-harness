@@ -1,66 +1,85 @@
 ---
 name: fusion
-description: Use Fusion for coding work with one persistent sidekick, concise briefs, and main-agent review. Activate only when the user requests Fusion.
+description: Run a coding task as a Fusion lead that plans and reviews while one persistent sidekick explores, implements, and verifies from concise briefs. Use only when the user asks for Fusion.
 ---
 
 # Fusion
 
-Use one main agent for judgment and one persistent sidekick for bounded execution.
-This is an independent Codex adaptation of Cognition's Fusion design.
+You are the lead. You own the plan, the interpretation of ambiguity, the review, and every user-facing or authority action.
+One persistent sidekick does the hands-on work. You exchange briefs, reports, and feedback, never full conversations.
+Fusion assumes a strong sidekick model. The sidekick costs a fraction of your turns, so each turn you spend on hands-on work forfeits most of the saving.
 
-## Activate
+## Start
 
-Read [the runtime contract](references/runtime.md) and [the sidekick contract](references/sidekick.md).
-Resolve the plugin root as two directories above this skill directory (the directory containing SKILL.md).
-Run `python3 <plugin-root>/scripts/fusion.py prepare` for initial entry. It resolves the lead, activates only the selected main thread, and prepares the sidekick decision. An already designated Fusion lead uses `prepare --entry lead` instead.
-For `delegate_lead`, follow the runtime's delegated-entry instructions; the caller has not been activated. Otherwise this thread is the Fusion lead.
-The command uses `CODEX_THREAD_ID`; if unavailable, pass the actual thread ID with `--session`. Never invent an ID.
-A missing or invalid model file blocks preparation; use setup or report the error, never choose fallback models. If bookkeeping is unavailable, follow the runtime's explicit fallback. Preparation is not evidence that an agent was spawned.
-Keep Fusion active for follow-up work until the user asks to stop or selects another orchestration workflow.
-To stop, steer active work to a safe stopping point when needed, collect its partial result, then close the sidekick, release its registered ID, and deactivate. Do not wait for unwanted work to finish unchanged. Skip bookkeeping commands when bookkeeping is unavailable.
-Do not stack Fusion with another delegation workflow. Preserve project verification and permission requirements.
+Resolve `<skill>` as the absolute directory that contains this file.
+Name your harness: `claude-code`, `codex`, or another short name. Run `python3 <skill>/scripts/model_config.py resolve --harness <name>`.
+If the model file is missing, run `python3 <skill>/scripts/model_config.py init` and tell the user its path. If the file is invalid, report the error. Never pick a fallback model.
+Read [runtimes](references/runtimes.md) for the returned transport and [the brief format](references/brief.md) before the first handoff.
+Keep Fusion active for follow-up work until the user stops it or selects another orchestration workflow. Do not stack Fusion with another delegation workflow.
+Use one sidekick per lead. When another instruction requires a specialist agent, say so and do not call that specialist the sidekick.
 
-## Keep judgment in the main agent
+## Divide the work
 
-Own requirements, design, interpretation of ambiguous evidence, acceptance, and user communication.
-Assume a capable sidekick: delegate initial exploration with a bounded question and evidence request. Inspect the relevant evidence and settle the plan yourself.
-Delegate implementation, focused verification, environment repair, and broad searches whose results can be summarized.
-Inspect enough evidence to settle assumptions before briefing implementation. Use a discovery brief when the implementation is unsettled.
-Treat candidate explanations as hypotheses. Confirm reachability before asserting a root cause.
+Delegate by default:
 
-Keep these tasks in the main agent:
+- Implementation, including tests, as soon as the design is settled. Your next action after settling a design is a brief, not an edit.
+- Builds, linters, type checks, and test suites, including slow suites and the final integration gate.
+- Environment setup and repair, even when the failure blocked your own action. Give a direction and hand the work back.
+- Broad fan-out searches and codebase mapping where you need the conclusion, not the file contents. Do not run a search you delegated.
 
-- Trivial edits that can be completed and verified in one or two tool turns.
-- Authoring and judging correctness-critical work: data analysis, measurements, prompt/rubric/grader/evaluation text, and scoring, threshold, sampling, pipeline, or model configuration. Delegate only mechanical execution of an exact lead-authored recipe; author and check its meaning yourself.
-- The exact text of queries against shared or production systems, including read-only queries. Delegate schema discovery first if needed.
-- Rendered-browser implementation and verification as one loop, unless applicable instructions require a dedicated browser subagent.
+Keep for yourself:
 
-When another instruction requires a specialist, explain the topology exception. Do not silently call that specialist the cheap sidekick.
-Urgent user requests can justify a minimal direct action. Preserve required checks.
+- Edits you can make and confirm in one or two turns with nothing left to test.
+- Reading that a design decision depends on, root-cause chains, and history analysis. Serial debugging where your accumulated context is the work stays with you.
+- Tasks where the judgment is the deliverable, such as subtle product intent. Delegate only the parts you can specify fully.
+- Correctness-critical authoring and checking: data analysis, measurements, prompts, rubrics, graders, evaluation harnesses, and scoring, threshold, sampling, pipeline, or model configuration. The sidekick may run an exact recipe you wrote. It never writes or judges one.
+- The exact text of queries against shared or production systems, including read-only queries. Delegate schema discovery first when needed.
+- Rendered-browser work where the build and the visual judgment form one loop.
+
+When you write a todo list, mark the steps you will hand off. When the user is waiting on an urgent deliverable, take the minimal unblocking action yourself and move slow validation off the critical path.
+
+## Plan before you brief
+
+A sidekick executes what you write, so hold an implementation brief to a higher confidence bar than your own next step.
+Verify each claim the plan depends on, or mark it in the brief as a hypothesis for the sidekick to check.
+Settle interfaces, data shapes, edge cases, and test cases before you hand off implementation. Delegate discovery first when they are still open.
+Treat a ranked list of candidate causes as hypotheses. Call a cause confirmed only when evidence shows its code path runs in the reported scenario.
+Do not send a non-blocking warm-up handoff while the design is still open. Its work tends to be redone.
 
 ## Brief and dispatch
 
-Use [the brief format](references/brief.md). Include only task-relevant context, never the full conversation.
-Brief at the design level: explain what changes and why, point to relevant locations, and cover hard edge cases. Use snippets when clearest, not for every edit.
-Invite evidence-backed concerns about the plan. Decide consequential corrections yourself before implementation proceeds.
-If consequential choices remain unsettled, delegate discovery first. Settle interfaces, data shapes, edge cases, and test cases before implementation. Leave bounded implementation details to the sidekick within that design; do not ask it to select an architecture or invent acceptance criteria.
-Specify runnable verification commands and pass conditions. Choose the narrowest checks that establish the change.
-Reserve required broad checks for a final integration gate. Rerun only when changed inputs or new evidence justify it.
-Use `fusion.py prepare --entry lead` immediately before each later handoff to reread live models. Use the initial preparation for the first handoff if it is still current; prepare again if briefing was delayed or settings changed. Apply the runtime fallback only when bookkeeping is unavailable.
-Spawn with `fork_context: false`; reuse the agent until preparation requests replacement for changed model settings.
-Default to waiting for the result. Work concurrently only when the main agent has independent work.
-Keep only one writer in the shared checkout. Do not edit owned files while the sidekick works.
+Use [the brief format](references/brief.md). Include only task-relevant context.
+Write briefs at the design level: what changes and why, where, the hard edge cases, and the definition of done. Leave implementation details to the sidekick. Use a snippet only when it is the clearest statement.
+Copy the task's hard requirements and invariants into the brief verbatim. Requirements that live only in your context get lost.
+Give results you already derived as settled inputs. Treat delivered results as fixed data; do not ask the sidekick to derive them again.
+Name the narrowest verification commands and their pass conditions. Reserve one broad gate for the end.
+Invite evidence-backed objections to the plan. Decide consequential changes yourself before implementation continues.
+Wait for the result by default. Work in parallel only on lead work that does not depend on the handoff.
+
+## During a handoff
+
+Assess every new user message before you resume waiting. Handle lead-only requests in the same turn.
+Forward changes, answers, or constraints that affect the running brief. Tell the sidekick to fold them into its current work, not restart.
+Resume waiting only after you decide that no lead action or steering remains. Deliver promised user answers when they are ready.
 
 ## Review and finish
 
-Read the artifacts and verification evidence. Do not treat a sidekick's prose as proof.
-Review the full diff and evidence at each completed handoff before further action. Send all corrections in one brief; after an initial miss, prefer rework over taking implementation back.
-When a blocker needs direction, answer its questions together and hand execution back. Take over when authority is required or repeated guided attempts have exhausted useful approaches.
-For visual deliverables, inspect the rendered artifact or required specialist evidence before acceptance. A build or DOM check alone does not establish visual correctness; report unavailable visual verification explicitly.
-Avoid redoing settled work or rerunning passing checks without cause. Verify unresolved claims at their source.
-The main agent owns acceptance, required integration checks, commits, pushes, and external communications under the user's authorization.
-Report results and limitations clearly. Do not claim a sidekick ran unless a spawn succeeded.
-Keep a concise continuation record: agent ID, accepted changes, pending checks, and lead-owned process handles.
-Reuse the same sidekick through implementation, corrections, and related follow-ups while the runtime permits. A handoff result alone is not a reason to replace it.
-When work ends and runtime cleanup requires closing completed agents, first preserve accepted facts, changed paths, passing checks, pending work, and process handles. Close and release it, then include that summary in the next sidekick brief. This preserves selected context, not Devin's full persistent conversation or prompt cache.
-Keep activation for follow-up work until the user stops Fusion.
+Review at every handoff that returns code. Read the full diff and the reported evidence, then give a verdict before your next action, including before you commit, push, or stop.
+Trust artifacts, not prose. Do not re-read files the sidekick summarized unless a decision depends on their exact text. Do not rerun checks the sidekick reported, except when the user needs your own proof, the sidekick cannot reach the surface, or the evidence is incomplete or suspicious.
+Batch all findings into one rework brief. Give instructions, not rewrites, such as "try simpler alternatives in this order and keep the first that passes."
+Fix a finding yourself only when it takes one or two turns with nothing to test. Send the rest back. Do not take work over after one miss. Take over only when the fix needs your authority or guided attempts have stopped making progress.
+Answer sidekick questions concretely in one reply, then hand execution back.
+For pull request review comments, judge and reply yourself, then batch the resulting code changes into one handoff.
+For visual deliverables, inspect the rendered result or required specialist evidence before acceptance. A build or DOM check is not visual proof.
+You own acceptance, commits, pushes, pull requests, and all communication with the user under the user's authorization.
+Report results and limits plainly. Do not claim a sidekick ran unless the spawn succeeded.
+
+## Continuity and models
+
+Keep a continuation record: transport, session or agent ID, model, effort, accepted changes, passing checks, pending work, and process handles you own.
+Reuse the same sidekick through implementation, rework, and related follow-ups. A finished handoff is not a reason to replace it.
+Before each later handoff, run `resolve` again with `--active-transport`, `--active-model`, and `--active-effort` from the record. On `replace_after_handoff`, collect and review the current result, close the old sidekick, and start a new one with a summary of the accepted state.
+A model change applies at a handoff boundary. It never changes a running call.
+To stop Fusion, steer running work to a safe stopping point, collect its partial result, and close the sidekick.
+
+Use [usage accounting](references/usage.md) when the user asks for lead and sidekick token totals.

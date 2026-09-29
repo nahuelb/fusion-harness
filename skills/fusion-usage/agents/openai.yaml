@@ -1,6 +1,0 @@
-interface:
-  display_name: "Fusion usage"
-  short_description: "Analyze session tokens by lead and sidekick"
-  default_prompt: "Use $fusion-usage to analyze this session."
-policy:
-  allow_implicit_invocation: true
