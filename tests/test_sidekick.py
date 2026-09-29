@@ -119,7 +119,6 @@ class CommandLineTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             models = Path(temp) / 'models.json'
             environment = {**os.environ, 'FUSION_MODELS_FILE': str(models), 'CLAUDE_CONFIG_DIR': str(Path(temp) / 'claude')}
-            subprocess.run([sys.executable, str(SCRIPTS / 'model_config.py'), 'init'], env=environment, capture_output=True, check=True)
             process = subprocess.run([sys.executable, str(SCRIPTS / 'sidekick.py'), 'start', '--harness', 'claude-code', '--workdir', temp],
                                      input='brief', env=environment, capture_output=True, text=True)
         self.assertEqual(process.returncode, 1)

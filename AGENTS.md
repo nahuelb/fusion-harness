@@ -18,9 +18,9 @@ Keep research notes in `research/`, which Git ignores. Tracked files must not de
 
 ## Live model configuration
 
-The live file is `~/.config/fusion-harness/models.json`, `$XDG_CONFIG_HOME/fusion-harness/models.json`, or the path in `FUSION_MODELS_FILE`.
-The lead reads it before every handoff. Changes must not require reinstalling or relinking the skill.
-Keep shipped defaults in `skills/fusion/config/models.default.json`. Never overwrite an existing user file.
+Built-in defaults for each harness live in `skills/fusion/config/models.default.json`. The skill must work with no setup step.
+The user's saved choices live in `~/.config/fusion-harness/models.json`, `$XDG_CONFIG_HOME/fusion-harness/models.json`, or the path in `FUSION_MODELS_FILE`. That file stores only overrides, so later default changes still reach fields the user did not set.
+The lead reads the settings before every handoff. Changes must not require reinstalling the skill or restarting the harness, except where the harness itself cannot reload.
 A model change takes effect at a handoff boundary. Never claim it changes a running call.
 The lead is always the current session's model.
 

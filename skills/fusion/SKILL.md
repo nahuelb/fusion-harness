@@ -13,7 +13,8 @@ Fusion assumes a strong sidekick model. The sidekick costs a fraction of your tu
 
 Resolve `<skill>` as the absolute directory that contains this file.
 Name your harness: `claude-code`, `codex`, or another short name. Run `python3 <skill>/scripts/model_config.py resolve --harness <name>`.
-If the model file is missing, run `python3 <skill>/scripts/model_config.py init` and tell the user its path. If the file is invalid, report the error. Never pick a fallback model.
+The helper combines built-in defaults for each harness with the user's saved choices. If it reports an error, report it to the user. Never pick a fallback model.
+When the user names a sidekick model or effort, run `python3 <skill>/scripts/model_config.py set --profile <harness> --model <exact-id> --effort <effort>` before you resolve. It saves the choice as the user's default for future sessions. `reset --profile <harness>` returns to the built-in defaults.
 Before the first handoff, read the one reference for the returned transport: [Claude Code](references/claude-code.md) for `native` in Claude Code, [Codex](references/codex.md) for `native` in Codex, or [CLI sessions](references/cli.md) for `codex-cli` and `claude-cli`.
 In another harness, use `native` only when its subagent keeps its context across messages and accepts a model choice, and add a profile named after the harness. Otherwise the `default` profile applies. Inspect the live tool schemas before you call a tool.
 Keep Fusion active for follow-up work until the user stops it or selects another orchestration workflow. Do not stack Fusion with another delegation workflow.
@@ -103,8 +104,7 @@ Report results and limits plainly. Do not claim a sidekick ran unless the spawn 
 
 Keep a continuation record: transport, session or agent ID, model, effort, granted permission mode, accepted changes, passing checks, pending work, and process handles you own.
 Reuse the same sidekick through implementation, rework, and related follow-ups. A finished handoff is not a reason to replace it.
-Before each later handoff, run `resolve` again with `--active-transport`, `--active-model`, and `--active-effort` from the record. On `replace_after_handoff`, collect and review the current result, close the old sidekick, and start a new one with a summary of the accepted state. On `restart_session`, follow [the Claude Code reference](references/claude-code.md).
-A replacement keeps the facts you pass on, not the old conversation or its prompt cache. If the runtime rejects the model or effort, report the mismatch and do not substitute another model.
+Before each later handoff, run `resolve` again with `--active-transport`, `--active-model`, and `--active-effort` from the record. On `replace_after_handoff`, collect and review the current result, close the old sidekick, and start a new one with a summary of the accepted state. A replacement keeps the facts you pass on, not the old conversation or its prompt cache. If the runtime rejects the model or effort, report the mismatch and do not substitute another model.
 A model change applies at a handoff boundary. It never changes a running call.
 Do not assume that shell state, the working directory, or background processes survive between handoffs unless you checked. Use absolute paths. You own long-lived servers through process handles you can inspect; the sidekick may run short-lived servers within one handoff.
 To stop Fusion, steer running work to a safe stopping point, collect its partial result, and close the sidekick.
