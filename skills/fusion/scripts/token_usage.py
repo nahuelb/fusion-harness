@@ -44,6 +44,8 @@ def analyze(path, role):
 
 def analyze_claude(path, role):
     responses = {}
+    incomplete = set()
+    unidentified = 0
     models = set()
     warnings = []
     sidechain = 0
@@ -57,18 +59,22 @@ def analyze_claude(path, role):
             if not isinstance(item, dict) or item.get('type') != 'assistant':
                 continue
             message = item.get('message')
-            usage = message.get('usage') if isinstance(message, dict) else None
-            ident = message.get('id') if isinstance(message, dict) else None
-            if not isinstance(usage, dict) or not isinstance(ident, str):
+            if not isinstance(message, dict) or message.get('model') == '<synthetic>':
                 continue
-            values = [usage.get(k) for k in CLAUDE_KEYS]
-            if not all(isinstance(v, int) and v >= 0 for v in values):
-                warnings.append(f'Ignored incomplete usage on line {number}')
+            ident = message.get('id')
+            usage = message.get('usage')
+            if not isinstance(ident, str):
+                if isinstance(usage, dict):
+                    unidentified += 1
+                continue
+            values = [usage.get(k) for k in CLAUDE_KEYS] if isinstance(usage, dict) else []
+            if len(values) != len(CLAUDE_KEYS) or not all(isinstance(v, int) and v >= 0 for v in values):
+                incomplete.add(ident)
                 continue
             details = usage.get('output_tokens_details')
             thinking = details.get('thinking_tokens') if isinstance(details, dict) else None
             entry = {**dict(zip(CLAUDE_KEYS, values)), 'thinking': thinking if isinstance(thinking, int) and thinking >= 0 else None}
-            if message.get('model') and message['model'] != '<synthetic>':
+            if message.get('model'):
                 models.add(message['model'])
             sidechain += bool(item.get('isSidechain')) and role == 'lead'
             previous = responses.get(ident)
@@ -76,7 +82,10 @@ def analyze_claude(path, role):
                 entry = {k: max(previous[k], entry[k]) for k in CLAUDE_KEYS} | {'thinking': max((v for v in (previous['thinking'], entry['thinking']) if v is not None), default=None)}
             responses[ident] = entry
     tokens = None
-    if responses:
+    unresolved = incomplete - set(responses)
+    if unresolved or unidentified:
+        warnings.append(f'{len(unresolved) + unidentified} responses have missing or incomplete usage; totals are unknown')
+    elif responses:
         rows = responses.values()
         cache_write = sum(r['cache_creation_input_tokens'] for r in rows)
         cache_read = sum(r['cache_read_input_tokens'] for r in rows)
@@ -88,7 +97,7 @@ def analyze_claude(path, role):
         missing = sum(r['thinking'] is None for r in rows)
         if missing:
             warnings.append(f'{missing} responses did not record thinking tokens; reasoning output may undercount')
-    else:
+    if not responses and not unresolved and not unidentified:
         warnings.append('No assistant usage records; usage is unknown')
     if sidechain:
         warnings.append(f'{sidechain} subagent lines are embedded in the lead transcript and counted as lead usage')

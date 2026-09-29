@@ -41,12 +41,23 @@ class ClaudeUsageTests(unittest.TestCase):
         (folder / f'agent-{ident}.meta.json').write_text(json.dumps({'agentType': agent_type}))
 
     def test_streamed_repeats_count_once_with_final_usage(self):
-        path = self.transcript('s1', [response('m1', output=3), response('m1', output=40), response('m2', output=10), {'type': 'assistant', 'message': {'id': 'x'}}])
+        synthetic = {'type': 'assistant', 'message': {'id': 'syn', 'model': '<synthetic>', 'content': []}}
+        partial = {'type': 'assistant', 'message': {'id': 'm2', 'model': 'claude-opus-5-5'}}
+        path = self.transcript('s1', [response('m1', output=3), partial, response('m1', output=40), response('m2', output=10), synthetic])
         row = usage.analyze_claude(path, 'lead')
         self.assertEqual(row['responses'], 2)
         self.assertEqual(row['tokens'], {'input_tokens': 2210, 'cached_input_tokens': 2000, 'output_tokens': 50, 'reasoning_output_tokens': 4,
                                          'total_tokens': 2260, 'cache_creation_input_tokens': 200})
         self.assertEqual(row['models'], ['claude-opus-5-5'])
+
+    def test_response_without_usage_makes_totals_unknown(self):
+        for broken in ({'type': 'assistant', 'message': {'id': 'm2', 'model': 'claude-opus-5-5'}},
+                       {'type': 'assistant', 'message': {'id': 'm2', 'usage': {'input_tokens': 1}}},
+                       {'type': 'assistant', 'message': {'usage': response('z')['message']['usage']}}):
+            with self.subTest(broken=broken):
+                row = usage.analyze_claude(self.transcript('s1', [response('m1'), broken]), 'lead')
+                self.assertIsNone(row['tokens'])
+                self.assertIn('totals are unknown', row['warnings'][0])
 
     def test_missing_thinking_and_empty_usage_are_reported(self):
         row = usage.analyze_claude(self.transcript('s1', [response('m1', thinking=None)]), 'lead')
