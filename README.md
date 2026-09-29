@@ -53,7 +53,7 @@ In Claude Code, the lead pins the sidekick's model and effort in a generated `~/
 
 The skill is instructions plus small helpers. Nothing enforces delegation, and it does not recreate Devin's model routing or compaction.
 Claude Code needs one restart only if `~/.claude/agents` did not exist when the session started.
-Cost savings and quality have not been benchmarked for this skill. Token accounting reads Codex session logs only.
+Cost savings on long tasks have not been benchmarked for this skill. Ask the lead for Fusion usage to get lead and sidekick token totals for a Claude Code or Codex session.
 
 ## Development
 
