@@ -4,7 +4,7 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'scripts'))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'skills/fusion/scripts'))
 import token_usage as usage
 
 
@@ -91,6 +91,43 @@ class SessionUsageTests(unittest.TestCase):
         self.assertEqual(usage.session_report('real', self.home)['session_id'], 'real')
         with self.assertRaises(ValueError):
             usage.session_report('wrong-id', self.home)
+
+
+class RolloutUsageTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.path = Path(self.temp.name) / 'rollout.jsonl'
+
+    def tearDown(self):
+        self.temp.cleanup()
+
+    def write_counts(self, counts):
+        lines = []
+        for n in counts:
+            tokens = dict(zip(usage.KEYS, (n, n // 2, n // 10, 0, n + n // 10)))
+            lines.append(json.dumps({'type': 'event_msg', 'payload': {'type': 'token_count', 'info': {'total_token_usage': tokens}}}))
+        self.path.write_text('\n'.join(lines))
+
+    def test_cumulative_snapshots_are_not_summed(self):
+        self.write_counts([100, 200, 200])
+        result = usage.report(self.path, [])
+        self.assertEqual(result['total']['input_tokens'], 200)
+        self.assertEqual(result['total']['total_tokens'], 220)
+
+    def test_unknown_usage_stays_unknown(self):
+        self.path.write_text('{bad\n{}\n')
+        result = usage.report(self.path, [])
+        self.assertIsNone(result['total'])
+        self.assertEqual(len(result['threads'][0]['warnings']), 2)
+
+    def test_duplicate_rollout_is_rejected(self):
+        self.write_counts([100])
+        with self.assertRaises(ValueError):
+            usage.report(self.path, [self.path])
+
+    def test_reset_is_reported(self):
+        self.write_counts([200, 100])
+        self.assertIn('decreased', usage.analyze(self.path, 'lead')['warnings'][0])
 
 
 if __name__ == '__main__':

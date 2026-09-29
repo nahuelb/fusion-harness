@@ -1,93 +1,51 @@
-# Install Fusion
+# Install Fusion Harness
 
-Use a Codex version with plugin and subagent support. Python 3.10 or newer must be available as `python3`.
-Git must be able to read the repository. Private repositories require Git authentication and repository access.
+Python 3.10 or newer must be available as `python3`. The skill uses only the standard library.
+Each CLI transport needs its CLI on `PATH` and signed in: `codex` for `codex-cli`, `claude` for `claude-cli`.
 
-## Install from GitHub
+## Link the skill
+
+Clone the repository once and link `skills/fusion` into each skill folder your harnesses read:
 
 ```sh
-codex plugin marketplace add nahuelb/codex-fusion-plugin
-codex plugin add fusion@fusion-marketplace
+git clone https://github.com/nahuelb/fusion-harness.git ~/Projects/fusion-harness
+ln -s ~/Projects/fusion-harness/skills/fusion ~/.agents/skills/fusion
+ln -s ~/Projects/fusion-harness/skills/fusion ~/.claude/skills/fusion
 ```
 
-The first command registers the repository's marketplace. The second installs Fusion from that marketplace.
-Start a fresh Codex task after installation. Then send:
+Codex reads `~/.agents/skills`. Claude Code reads `~/.claude/skills`. Other harnesses document their own skill folder.
+If one folder is a link to the other, create only one link. A repository-level `.agents/skills` or `.claude/skills` folder also works for one project.
+Start a new task after linking. A running task does not prove that the skill loaded.
 
-```text
-Use $setup-fusion to set up Fusion.
+## Create the model file
+
+```sh
+python3 ~/Projects/fusion-harness/skills/fusion/scripts/model_config.py init
+python3 ~/Projects/fusion-harness/skills/fusion/scripts/model_config.py show
 ```
 
-You can also ask Codex to “set up Fusion.” The `fusion:setup-fusion` skill initializes the external model registry.
-It preserves an existing valid configuration. Setup does not activate the coding workflow or start agents.
-After setup, send `Use $fusion to implement <task>`.
-
-The default sidekick is Luna at xhigh. Direct invocation keeps the current main model.
-The configured Astra lead is used when another agent delegates a Fusion run.
-Configured models must be available in your Codex runtime. Setup validates configuration, not model access.
+`init` creates `~/.config/fusion-harness/models.json` from the shipped defaults when the file is missing. It never overwrites an existing file.
+`XDG_CONFIG_HOME` moves the default folder. `FUSION_MODELS_FILE` selects any other path.
+Change a profile with `model_config.py set`. It validates the result and replaces the file atomically.
+Model names are checked at spawn time, not by the schema. If a model is unavailable, the lead reports it and does not substitute another.
 
 ## Update
 
 ```sh
-codex plugin marketplace upgrade fusion-marketplace
-codex plugin add fusion@fusion-marketplace
+git -C ~/Projects/fusion-harness pull
 ```
 
-Start a fresh task to load updated plugin code. Model settings remain in the external registry.
-Do not run setup again unless you want to inspect or change those settings.
+Links pick up the new files. Start a new task to load them. The model file lives outside the checkout and is not touched.
 
-## Install a local checkout
+## Migrate from the Codex plugin
+
+Earlier versions shipped as the Codex plugin `fusion`. Find and remove the installed copy:
 
 ```sh
-git clone https://github.com/nahuelb/codex-fusion-plugin.git
-cd codex-fusion-plugin
-codex plugin marketplace add .
-codex plugin add fusion@fusion-marketplace
+codex plugin list | grep '^fusion@'
+codex plugin remove fusion@<marketplace>
 ```
 
-Choose either the GitHub source or the local source for `fusion-marketplace`.
-If that marketplace name is already registered, inspect `codex plugin marketplace list` before switching its source.
-A local source reads the checkout. Reinstall after pulling reviewed changes; marketplace upgrade is for Git sources.
-
-## Models and hooks
-
-`$setup-fusion` uses `$CODEX_HOME/plugins/fusion/models.json`, or `FUSION_MODELS_FILE` when set on the Codex host.
-When `CODEX_HOME` is unset or empty, it defaults to `~/.codex`. The registry stays outside the versioned plugin cache.
-Edit that file or ask setup to change specific model fields. Existing unrelated settings are preserved.
-No cachebuster, reinstall, or new task is needed for model edits.
-The lead reads the file before each handoff. Model or effort changes replace the sidekick after its current handoff finishes.
-Lead changes apply to the next delegated run.
-
-Hooks require Codex hook trust. Review the plugin hooks through `/hooks` if you want the advisory reminders.
-The core skill works without hooks. Setup does not enable hook trust automatically.
-
-## Existing settings
-
-Earlier versions used `~/.config/codex-fusion/models.json`.
-When upgrading, validate that file before setup and copy it to the new registry path only if the destination is absent.
-Preserve the original as a backup. Never overwrite an existing destination or silently replace an invalid source with defaults.
-An explicit `FUSION_MODELS_FILE` continues to select its own file; do not migrate it automatically.
-For an intentionally separate `CODEX_HOME`, initialize separate settings unless the user requests importing the old choices.
-
-## Maintainer reloads
-
-Complete review and checks before publishing. Update the plugin cachebuster before the final reviewed commit, as described in `AGENTS.md`.
-Use the installation's existing marketplace instead of changing its source to conceal unmerged changes.
-
-For a personal development installation, resolve the actual marketplace name and source:
-
-```sh
-python3 "${CODEX_HOME:-$HOME/.codex}/skills/.system/plugin-creator/scripts/read_marketplace_name.py"
-codex plugin list --marketplace personal --available --json
-```
-
-The default personal marketplace is discovered implicitly. Do not register it through marketplace-add.
-Refresh its plugin source from a clean tracked-file export of reviewed `main`, using `git archive HEAD`.
-Preserve the external registry. Then run `codex plugin add fusion@personal`, substituting the resolved marketplace name when needed.
-Compare installed files and the manifest version with that reviewed source.
-Verify the skill in a fresh task. An existing task or a registry listing does not prove the update loaded.
-
-The underlying initialization command remains available for automation:
-`python3 <installed-plugin-root>/scripts/model_config.py init`.
-Normal interactive setup uses `$setup-fusion`.
-
-See [official Codex plugin guidance](https://learn.chatgpt.com/docs/plugins) for the plugin lifecycle.
+Remove its marketplace too if nothing else uses it: `codex plugin marketplace remove <marketplace>`.
+When the old file `$CODEX_HOME/plugins/fusion/models.json` exists and the new file does not, `init` copies its sidekick model and effort into the `codex` profile. It leaves the old file in place.
+The plugin's hooks and session bookkeeping are gone. The lead keeps the sidekick's identity and settings in its own continuation record.
