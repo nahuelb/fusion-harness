@@ -2,7 +2,7 @@
 
 Read `~/.agents/AGENTS.md` before work when it exists.
 Fusion Harness is one portable agent skill in `skills/fusion`. It must work in Claude Code, Codex, and any harness that loads skills and runs shell commands.
-Keep harness-specific details in `skills/fusion/references/runtimes.md`. Check current official documentation and the live tool schemas before you change a runtime mapping.
+Keep harness-specific details in the transport references: `claude-code.md`, `codex.md`, and `cli.md` under `skills/fusion/references/`. Check current official documentation and the live tool schemas before you change a runtime mapping.
 Preserve one sidekick per lead, bounded handoffs, lead acceptance, and the user's permission boundaries. Never add sandbox or approval bypass flags to a transport.
 Assume strong sidekick models. Do not add guidance or settings for weak sidekicks.
 
